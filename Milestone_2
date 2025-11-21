@@ -1,0 +1,89 @@
+from numpy import array, zeros, linspace, concatenate, float64, sqrt
+import matplotlib.pyplot as plt
+from scipy.optimize import newton
+from numpy.linalg import norm
+
+x0=1 #posición inicial en x
+y0=0 #posición inicial en y
+vx0=0 #velocidad inicial en x
+vy0=1 #velocidad inicial en y
+
+U0=array([x0,y0,vx0,vy0])
+print(U0)
+
+T=100
+N = 10000
+
+delta_t= T/N
+print(delta_t)
+
+def F(U, t):
+     # posiciones y velocidades actuales
+    r = U[0:2]
+    v = U[2:4]
+
+    a = -r/norm(r)**3
+
+    return concatenate((v,a))
+
+def Euler( U, t1, t2 , F):
+
+    return U + (t2-t1) * F(U, t1)
+U = zeros((N+1,4)) #Matriz de soluciones, filas N+1, columnas = 4
+U[0,:] = U0 #La primera fila será la primera solución y por tanto será U0
+for n in range(N):
+   tn = n * delta_t
+   tn1 = (n + 1) * delta_t
+   U[n+1,:] = Euler( U[n,:], tn, tn1, F)
+
+plt.axis("equal")
+plt.plot(U[:, 0], U[:, 1], label="Euler Explícito", alpha=0.6)
+plt.show()
+
+def RK4(U, t, delta_t, F):
+   
+    k1 = F(U, t)
+    k2 = F(U+0.5*k1*delta_t, t+0.5*delta_t)
+    k3 = F(U+0.5*k2*delta_t, t+0.5*delta_t)
+    k4 = F(U+k3*delta_t, t+delta_t)
+
+    return U + (1.0/6.0)*delta_t*(k1 + 2*k2+2*k3 + k4)
+
+
+U_RK4 = zeros((N + 1, 4)) # Matriz para las soluciones de RK4
+U_RK4[0, :] = U0          # La primera fila es el estado inicial
+
+# Bucle de integración paso a paso
+for n in range(N):
+    tn = n * delta_t
+    # Se llama a RK4 con el estado actual U_RK4[n,:], el tiempo tn, y delta_t
+    U_RK4[n+1, :] = RK4(U_RK4[n, :], tn, delta_t, F)
+plt.axis("equal")
+plt.plot(U_RK4[:,0], U_RK4[:,1])
+plt.show()
+
+t = linspace(0, T, N + 1)
+
+def Cauchy(temporal_scheme, U0, F, t):
+
+    U = zeros([N+1, len(U0)])
+    U[0, :] = U0
+
+    for n in range(0, N):
+        dt = t[n+1] - t[n] 
+        
+        U[n+1, :] = temporal_scheme(U[n, :], dt, t[n], F)
+    
+    return U
+
+def CN(U, delta_t, t, F): 
+    def G(X): # Siendo X = U(n-1)
+        return X - U - delta_t/2 * (F(X, t) + F(U, t))
+    return newton(G, U)
+
+U_CN = Cauchy(CN, U0, F, t)
+
+
+plt.axis("equal")
+plt.plot(U_CN[:,0], U_CN[:,1])
+plt.show()
