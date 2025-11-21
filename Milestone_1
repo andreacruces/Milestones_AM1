@@ -1,0 +1,143 @@
+from numpy import array, linspace, zeros, sqrt, concatenate
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+
+x0=1 #posición inicial en x
+y0=0 #posición inicial en y
+vx0=0 #velocidad inicial en x
+vy0=1 #velocidad inicial en y
+
+U0=array([x0,y0,vx0,vy0])
+print(U0)
+
+T=100
+N = 10000
+
+delta_t= T/N
+print(delta_t)
+
+#Euler
+
+U_Euler =zeros((N+1,4)) #Matriz de soluciones, filas N+1, columnas = 4
+U_Euler[0,:] = U0 #La primera fila será la primera solución y por tanto será U0
+F_Euler =zeros(4) #Vector de derivadas en función del tiempo
+for i in range(N):
+    # posiciones y velocidades actuales
+    x, y, vx, vy = U_Euler[i]
+
+    # derivadas: dx/dt = vx, dy/dt = vy
+    F_Euler[0] = vx
+    F_Euler[1] = vy
+
+    # aceleraciones (ley de Newton)
+    norm_r = (x**2 + y**2)**0.5
+    F_Euler[2] = -x/norm_r**3 if norm_r > 1e-10 else 0
+    F_Euler[3] = -y/norm_r**3 if norm_r > 1e-10 else 0
+
+    # actualización con Euler
+    U_Euler[i+1,:] = U_Euler[i,:] + delta_t * F_Euler
+
+plt.axis("equal")
+plt.plot(U_Euler[:, 0], U_Euler[:, 1] )
+plt.show()
+
+#Runge-kutta
+
+U_RK = zeros((N+1, 4))
+U_RK[0, :] = U0
+
+for i in range(N-1):
+    x, y, vx, vy = U_RK[i]
+
+    # Cálcuo K1
+    r1 = sqrt(x**2 + y**2)
+    ax1 = -x / r1**3 if r1 > 1e-10 else 0
+    ay1 = -y / r1**3 if r1 > 1e-10 else 0
+    K1 = array([vx, vy, ax1, ay1])
+
+    #Cálculo k2 
+    x2 = x + 0.5 * delta_t * K1[0]
+    y2 = y + 0.5 * delta_t * K1[1]
+    vx2 = vx + 0.5 * delta_t * K1[2]
+    vy2 = vy + 0.5 * delta_t * K1[3]
+    r2 = sqrt(x2**2 + y2**2)
+    ax2 = -x2 / r2**3 if r2 > 1e-10 else 0
+    ay2 = -y2 / r2**3 if r2 > 1e-10 else 0
+    K2 = array([vx2, vy2, ax2, ay2])
+
+    #Calculo K3 (otro punto medio con K2)
+    x3 = x + 0.5 * delta_t * K2[0]
+    y3 = y + 0.5 * delta_t * K2[1]
+    vx3 = vx + 0.5 * delta_t * K2[2]
+    vy3 = vy + 0.5 * delta_t * K2[3]
+    r3 = sqrt(x3**2 + y3**2)
+    ax3 = -x3 / r3**3 if r3 > 1e-10 else 0
+    ay3 = -y3 / r3**3 if r3 > 1e-10 else 0
+    K3 = array([vx3, vy3, ax3, ay3])
+
+    # Cálculo k4 (evaluar al final con K3)
+    x4 = x + delta_t * K3[0]
+    y4 = y + delta_t * K3[1]
+    vx4 = vx + delta_t * K3[2]
+    vy4 = vy + delta_t * K3[3]
+    r4 = sqrt(x4**2 + y4**2)
+    ax4 = -x4 / r4**3 if r4 > 1e-10 else 0
+    ay4 = -y4 / r4**3 if r4 > 1e-10 else 0
+    K4 = array([vx4, vy4, ax4, ay4])
+
+    #Actualización
+    U_RK[i+1, :] = U_RK[i, :] + (delta_t/6)*(K1 + 2*K2 + 2*K3 + K4)
+    
+
+plt.plot(U_RK[:-1,0], U_RK[:-1,1])
+plt.axis("equal")
+plt.show()
+
+#Crank-Nicolson
+
+U_CN = zeros((N + 1, 4)) # Matriz de soluciones (N+1 filas, 4 columnas)
+U_CN[0, :] = U0 # La primera fila será la condición inicial
+
+for i in range(N):
+    # 1. Pposiciones y velocidades actuales (tiempo t_i)
+    x, y, vx, vy = U_CN[i]
+
+    # 2. Cálculo de la aceleración actual (a_i)
+    norm_r = (x**2 + y**2)**0.5
+    
+    # Evitar división por cero
+    if norm_r > 1e-10:
+        ax = -x / norm_r**3 
+        ay = -y / norm_r**3
+    else:
+        ax = 0.0
+        ay = 0.0
+
+    # 3. Predicción de las nuevas posiciones (tiempo t_i+1)
+    # Similar a un paso de Euler para la posición, usando la aceleración actual (a_i)
+    # x_i+1 = x_i + vx_i * delta_t + 0.5 * ax_i * delta_t**2
+    x_new = x + delta_t * vx + 0.5 * delta_t**2 * ax
+    y_new = y + delta_t * vy + 0.5 * delta_t**2 * ay
+    
+    # Guardar las posiciones predichas/actualizadas en la matriz
+    U_CN[i+1, 0] = x_new
+    U_CN[i+1, 1] = y_new
+    
+    # 4. Cálculo de la nueva aceleración (a_i+1) usando las nuevas posiciones
+    norm_r_new = (x_new**2 + y_new**2)**0.5
+    
+    if norm_r_new > 1e-10:
+        ax_new = -x_new / norm_r_new**3
+        ay_new = -y_new / norm_r_new**3
+    else:
+        ax_new = 0.0
+        ay_new = 0.0
+        
+    # 5. Corrección de las nuevas velocidades (v_i+1)
+    # Usando el promedio de la aceleración: v_i+1 = v_i + 0.5 * delta_t * (a_i + a_i+1)
+    U_CN[i+1, 2] = vx + 0.5 * delta_t * (ax + ax_new)
+    U_CN[i+1, 3] = vy + 0.5 * delta_t * (ay + ay_new)
+
+plt.plot(U_CN[:-1,0], U_CN[:-1,1])
+plt.axis("equal")
+plt.show()
