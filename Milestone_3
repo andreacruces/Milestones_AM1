@@ -1,0 +1,154 @@
+from numpy import concatenate, zeros, reshape, array, linspace, log
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+from scipy.linalg import solve
+
+#Condiciones iniciales - Las mismas que para la mislestone 1 y 2
+x0=1 #posición inicial en x
+y0=0 #posición inicial en y
+vx0=0 #velocidad inicial en x
+vy0=1 #velocidad inicial en y
+
+U0=array([x0,y0,vx0,vy0])
+print(U0)
+
+T=100
+N = 10000
+
+delta_t= T/N
+print(delta_t)
+
+#De clase
+def F(U, t ):
+    r=U[0:2]
+    rdot= U[2:4]
+    return concatenate((rdot, -r/norm(r)**3), axis= None)
+
+def derivative (f,x,dx):
+    h= 1e-7
+    return (f(x+dx)-f(x-dx))/(2*h)
+
+def Jacobian (f,x):
+    J= zeros((len(x),len(x)))
+    for j in range (len(x)):
+        dx=zeros((len(x)))
+        dx[j]=1e-7
+        J[:,j]=derivative(f,x,dx)
+    return J
+
+def Gauss (A, b):
+    return solve(A,b)
+
+def Newton (f,x0):
+    x=x0
+    Dx=1.0
+    while norm (Dx)>1e-10:
+        A=Jacobian(f,x)
+        Dx=Gauss(A,-f(x))
+        x=x+Dx
+    return x
+
+
+
+#Función de Cauchy Milestone 2
+
+def Cauchy(temporal_scheme, U0, F, t):
+
+    U = zeros([N+1, len(U0)])
+    U[0, :] = U0
+
+    for n in range(0, N):
+        delta_t = t[n+1] - t[n] 
+        
+        U[n+1, :] = temporal_scheme(U[n, :], delta_t, t[n], F)
+    
+    return U
+
+# Ajuste para que sea (U_n, dt, t_n, F) como lo requiere Cauchy
+
+def Euler(U_n, dt, t_n, F):
+
+    return U_n + dt * F(U_n, t_n)
+
+def Inverse_Euler(U_n, dt, t_n, F):
+
+    tnew=t_n+dt
+
+    def G(X):
+        return X - U_n - dt * F(X, tnew)
+    
+    return Newton(G, U_n)
+
+def Crank_Nicolson(U_n, dt, t_n, F): 
+    tnew=t_n+dt
+    F_n = F(U_n, t_n)
+
+    def G(X): 
+        return X - U_n - (dt/2) * (F_n + F(X, tnew))
+    Unew= U_n + dt * F_n
+    return Newton(G, Unew)
+
+def RK4(U_n, dt, t_n, F):
+    k1 = F(U_n, t_n)
+    k2 = F(U_n+0.5*k1*delta_t, t_n+0.5*delta_t)
+    k3 = F(U_n+0.5*k2*delta_t, t_n+0.5*delta_t)
+    k4 = F(U_n+k3*delta_t, t_n+delta_t)
+
+    return U_n + (1.0/6.0)*delta_t*(k1 + 2*k2+2*k3 + k4)
+
+
+def Error_Cauchy(temporal_scheme, U0, F, T_final, N_steps):
+
+    global N, t_global 
+    
+    # 1. Guarda el estado actual
+    N_old = N
+    t_global_old = t_global
+    
+    # 2. Redefine las variables globales
+    N = N_steps
+    t_global = linspace(0, T_final, N + 1)
+    
+    # 3. Llama a la función de integración original
+    U = Cauchy(temporal_scheme, U0, F, t_global)
+    
+    # 4. Restaura el estado original
+    N = N_old
+    t_global = t_global_old
+    
+    return U
+def Richardson_Error(temporal_scheme, U0, F, T, N_base, order_p):
+
+    # Solución con paso h (N_base)
+    U_h = Error_Cauchy(temporal_scheme, U0, F, T, N_base)
+    
+    # Solución con paso h/2 (2*N_base)
+    U_2h = Error_Cauchy(temporal_scheme, U0, F, T, 2 * N_base)
+    
+    # Diferencia en el último punto temporal T
+    difference_at_T = U_2h[-1, :] - U_h[-1, :]
+    
+    # Error estimado en U_2N: E = ||U_2N - U_N|| / (2^p - 1)
+    error_estimate = norm(difference_at_T) / (2**order_p - 1)
+    
+    return error_estimate
+
+def convergence(errors, dts):
+    p = zeros(len(errors) - 1)
+    # Tasa p = log(E_i / E_{i+1}) / log(dt_i / dt_{i+1})
+    for i in range(len(errors) - 1):
+        p[i] = log(errors[i] / errors[i + 1]) / log(dts[i] / dts[i + 1])
+    return p
+
+def test_error():
+    U0=array([x0,y0,vx0,vy0])
+    T=100
+    N = 10000
+    t=linspace(0,T,N+1)
+    q=1
+    U, E=Error_Cauchy(Euler, U0, F, t, q)
+
+    plt.plot(U[:,0],U[:,1])
+    plt.axis('equal')
+    plt.show()
+test_error()
