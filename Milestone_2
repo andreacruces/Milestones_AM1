@@ -70,7 +70,7 @@ def Cauchy(temporal_scheme, U0, F, t):
     U[0, :] = U0
 
     for n in range(0, N):
-        dt = t[n+1] - t[n] 
+        delta_t = t[n+1] - t[n] 
         
         U[n+1, :] = temporal_scheme(U[n, :], dt, t[n], F)
     
