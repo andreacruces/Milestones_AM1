@@ -1,7 +1,9 @@
-from numpy import concatenate, zeros, reshape, array, linspace, log
+from numpy import concatenate, zeros, reshape, array, linspace, log ,float64
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.linalg import solve
+from scipy.optimize import newton
+from Milestone_2 import Cauchy, Euler, RK4, Crank_Nicolson, Inverse_Euler,F
 
 #Condiciones iniciales - Las mismas que para la mislestone 1 y 2
 x0=1 #posición inicial en x
@@ -19,82 +21,34 @@ delta_t= T/N
 print(delta_t)
 
 #De clase
-def F(U, t ):
-    r=U[0:2]
-    rdot= U[2:4]
-    return concatenate((rdot, -r/norm(r)**3), axis= None)
+#def F(U, t ):
+ #   r=U[0:2]
+  #  rdot= U[2:4]
+   # return concatenate((rdot, -r/norm(r)**3), axis= None)
 
-def derivative (f,x,dx):
-    h= 1e-7
-    return (f(x+dx)-f(x-dx))/(2*h)
+#def derivative (f,x,dx):
+ #   h= 1e-7
+  #  return (f(x+dx)-f(x-dx))/(2*h)
 
-def Jacobian (f,x):
-    J= zeros((len(x),len(x)))
-    for j in range (len(x)):
-        dx=zeros((len(x)))
-        dx[j]=1e-7
-        J[:,j]=derivative(f,x,dx)
-    return J
+#def Jacobian (f,x):
+ #   J= zeros((len(x),len(x)))
+  #  for j in range (len(x)):
+   #     dx=zeros((len(x)))
+    #    dx[j]=1e-7
+     #   J[:,j]=derivative(f,x,dx)
+  #  return J
 
-def Gauss (A, b):
-    return solve(A,b)
+#def Gauss (A, b):
+ #   return solve(A,b)
 
-def Newton (f,x0):
-    x=x0
-    Dx=1.0
-    while norm (Dx)>1e-10:
-        A=Jacobian(f,x)
-        Dx=Gauss(A,-f(x))
-        x=x+Dx
-    return x
-
-
-
-#Función de Cauchy Milestone 2
-
-def Cauchy(temporal_scheme, U0, F, t):
-
-    U = zeros([N+1, len(U0)])
-    U[0, :] = U0
-
-    for n in range(0, N):
-        delta_t = t[n+1] - t[n] 
-        
-        U[n+1, :] = temporal_scheme(U[n, :], delta_t, t[n], F)
-    
-    return U
-
-# Ajuste para que sea (U_n, dt, t_n, F) como lo requiere Cauchy
-
-def Euler(U_n, dt, t_n, F):
-
-    return U_n + dt * F(U_n, t_n)
-
-def Inverse_Euler(U_n, dt, t_n, F):
-
-    tnew=t_n+dt
-
-    def G(X):
-        return X - U_n - dt * F(X, tnew)
-    
-    return Newton(G, U_n)
-
-def Crank_Nicolson(U_n, dt, t_n, F): 
-    tnew=t_n+dt
-    F_n = F(U_n, t_n)
-
-    def G(X): 
-        return X - U_n - (dt/2) * (F_n + F(X, tnew))
-    Unew= U_n + dt * F_n
-    return Newton(G, Unew)
-
-def RK4(U_n, dt, t_n, F):
-    k1 = F(U_n, t_n)
-    k2 = F(U_n+0.5*k1*delta_t, t_n+0.5*delta_t)
-    k3 = F(U_n+0.5*k2*delta_t, t_n+0.5*delta_t)
-    k4 = F(U_n+k3*delta_t, t_n+delta_t)
-
-    return U_n + (1.0/6.0)*delta_t*(k1 + 2*k2+2*k3 + k4)
+#def Newton (f,x0):
+#    x=x0
+    #Dx=1.0
+    #while norm (Dx)>1e-10:
+     #   A=Jacobian(f,x)
+      #  Dx=Gauss(A,-f(x))
+       # x=x+Dx
+    #return x
 
 
 def Error_Cauchy(temporal_scheme, U0, F, T_final, N_steps):
