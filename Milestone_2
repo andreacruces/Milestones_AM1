@@ -1,7 +1,6 @@
-from numpy import array, zeros, linspace, concatenate, float64, sqrt
+from numpy import array, zeros, linspace, concatenate, float64
 import matplotlib.pyplot as plt
 from scipy.optimize import newton
-from numpy.linalg import norm
 
 x0=1 #posición inicial en x
 y0=0 #posición inicial en y
@@ -11,79 +10,74 @@ vy0=1 #velocidad inicial en y
 U0=array([x0,y0,vx0,vy0])
 print(U0)
 
-T=100
+T = 400
 N = 10000
-
-delta_t= T/N
-print(delta_t)
+delta_t = T / N
 
 def F(U, t):
-     # posiciones y velocidades actuales
-    r = U[0:2]
-    v = U[2:4]
+    x = U[0]; y = U[1]; dxdt = U[2]; dydt = U[3]
+    d = ( x**2  +y**2 )**1.5
 
-    a = -r/norm(r)**3
+    return  array( [ dxdt, dydt, -x/d, -y/d ] ) 
 
-    return concatenate((v,a))
-
-def Euler( U, t1, t2 , F):
-
-    return U + (t2-t1) * F(U, t1)
-U = zeros((N+1,4)) #Matriz de soluciones, filas N+1, columnas = 4
-U[0,:] = U0 #La primera fila será la primera solución y por tanto será U0
-for n in range(N):
-   tn = n * delta_t
-   tn1 = (n + 1) * delta_t
-   U[n+1,:] = Euler( U[n,:], tn, tn1, F)
-
-plt.axis("equal")
-plt.plot(U[:, 0], U[:, 1], label="Euler Explícito", alpha=0.6)
-plt.show()
-
-def RK4(U, t, delta_t, F):
-   
-    k1 = F(U, t)
-    k2 = F(U+0.5*k1*delta_t, t+0.5*delta_t)
-    k3 = F(U+0.5*k2*delta_t, t+0.5*delta_t)
-    k4 = F(U+k3*delta_t, t+delta_t)
-
-    return U + (1.0/6.0)*delta_t*(k1 + 2*k2+2*k3 + k4)
+def Cauchy(temporal_scheme, U0, F, t):
+    N = len(t) - 1
+    Nv= len(U0)
+    U = zeros( (N+1, Nv), dtype=float64 ) 
+    U[0,:] = U0
+    for n in range(N): 
+        U[n+1,:] = temporal_scheme( U[n, :], t[n+1] - t[n], t[n],  F ) 
+    return U
 
 
-U_RK4 = zeros((N + 1, 4)) # Matriz para las soluciones de RK4
-U_RK4[0, :] = U0          # La primera fila es el estado inicial
+def Euler(U_n, dt, t_n, F):
+    return U_n + dt * F(U_n, t_n) # Milestone 2.1
 
-# Bucle de integración paso a paso
-for n in range(N):
-    tn = n * delta_t
-    # Se llama a RK4 con el estado actual U_RK4[n,:], el tiempo tn, y delta_t
-    U_RK4[n+1, :] = RK4(U_RK4[n, :], tn, delta_t, F)
-plt.axis("equal")
-plt.plot(U_RK4[:,0], U_RK4[:,1])
-plt.show()
+def RK4(U_n, dt, t_n, F):
+    k1 = F(U_n, t_n)
+    k2 = F(U_n + 0.5 * k1 * dt, t_n + 0.5 * dt)
+    k3 = F(U_n + 0.5 * k2 * dt, t_n + 0.5 * dt)
+    k4 = F(U_n + k3 * dt, t_n + dt)
+    return U_n + (1.0 / 6.0) * dt * (k1 + 2 * k2 + 2 * k3 + k4) # Milestone 2.3
+
+def Crank_Nicolson(U_n, dt, t_n, F): 
+    def G(X): # Siendo X = U(n-1)
+        return X - U_n - dt/2 * (F(X, t_n) + F(U_n, t_n))
+    return newton(G, U_n)
+
+def Inverse_Euler(U_n, dt, t_n, F):
+    def G(X):
+        return X - U_n - dt * F(X, t_n + dt)
+    return newton(G, U_n) # Milestone 2.4
 
 t = linspace(0, T, N + 1)
 
-def Cauchy(temporal_scheme, U0, F, t):
+U_Euler = Cauchy (Euler, U0, F, t)
+plt.plot(U_Euler[:,0], U_Euler[:,1])
+plt.show()
 
-    U = zeros([N+1, len(U0)])
-    U[0, :] = U0
-
-    for n in range(0, N):
-        delta_t = t[n+1] - t[n] 
-        
-        U[n+1, :] = temporal_scheme(U[n, :], delta_t, t[n], F)
-    
-    return U
-
-def CN(U, delta_t, t, F): 
-    def G(X): # Siendo X = U(n-1)
-        return X - U - delta_t/2 * (F(X, t) + F(U, t))
-    return newton(G, U)
-
-U_CN = Cauchy(CN, U0, F, t)
+U_RK4 = Cauchy (RK4, U0, F, t)
+plt.plot(U_RK4[:,0], U_RK4[:,1])
+plt.show()
 
 
-plt.axis("equal")
+U_CN = Cauchy (Crank_Nicolson, U0, F, t)
 plt.plot(U_CN[:,0], U_CN[:,1])
+plt.show()
+
+
+U_EulerInverso = Cauchy (Inverse_Euler, U0, F, t)
+plt.plot(U_EulerInverso[:,0], U_EulerInverso[:,1])
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(U_Euler[:, 0], U_Euler[:, 1], label="Euler Explícito", alpha=0.6)
+plt.plot(U_RK4[:, 0], U_RK4[:, 1], label="Runge-Kutta 4 etapas", alpha=0.6)
+plt.plot(U_CN[:, 0], U_CN[:, 1], label="Crank-Nickolson", alpha=0.6)
+plt.plot(U_EulerInverso[:,0], U_EulerInverso[:,1], label="Euler Inverso", alpha=0.6)
+plt.legend()
+plt.xlabel("x")
+plt.ylabel("y")
+plt.title("Solución de la EDO usando diferentes métodos numéricos")
+plt.grid()
 plt.show()
