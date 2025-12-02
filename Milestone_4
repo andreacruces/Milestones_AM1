@@ -2,7 +2,7 @@ from numpy import concatenate, zeros, reshape, array, linspace, log, exp, ones_l
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.linalg import solve
-from Milestone_3 import Cauchy, RK4, Euler, Inverse_Euler, Crank_Nicolson, Newton, Gauss, Jacobian, derivative, F
+from Milestone_functions import Cauchy, RK4, Euler, Inverse_Euler, Crank_Nicolson
 
 def F_linear(U, t):
     return -U
@@ -23,9 +23,12 @@ def Leap_Frog(U1, t1, t2, F):
     
     return array([x_new, v_new])
 
-def F_oscillator(y, t):
+def F_oscillator(U, t):
     
-    return array([y[1], -y[0]])
+    x = U [0]
+    v = U [1]
+    F = array ([v, -x])
+    return F
 
 def simular(metodo, y0, h, T):
     N = int(T/h)
