@@ -1,0 +1,181 @@
+from numpy import sqrt, zeros, linspace, array
+import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
+
+
+def Metodo_Fehlberg(Estado, t_ini, t_fin, Funcion):
+    dt = t_fin - t_ini
+    k1 = Funcion(t_ini, Estado)
+    k2 = Funcion(t_ini + dt/4, Estado + dt*(0.25)*k1)
+    k3 = Funcion(t_ini + 3*dt/8, Estado + dt*(3/32*k1 + 9/32*k2))
+    k4 = Funcion(t_ini + 12*dt/13, Estado + dt*(1932/2197*k1 - 7200/2197*k2 + 7296/2197*k3))
+    k5 = Funcion(t_ini + dt, Estado + dt*(439/216*k1 - 8*k2 + 3680/513*k3 - 845/4104*k4))
+    k6 = Funcion(t_ini + dt/2, Estado + dt*(-8/27*k1 + 2*k2 - 3544/2565*k3 + 1859/4104*k4 - 11/40*k5))
+
+    # Solo retornamos la solucion de orden 5
+    Est_5 = Estado + dt*(16/135*k1 + 6656/12825*k2 + 28561/56430*k3 + 9/50*k4 + 2/55*k5)
+    return Est_5
+
+def Metodo_DormandPrince(Estado, t_ini, t_fin, Funcion):
+    dt = t_fin - t_ini
+    k1 = Funcion(t_ini, Estado)
+    k2 = Funcion(t_ini + dt*0.2, Estado + dt*0.2*k1)
+    k3 = Funcion(t_ini + dt*0.3, Estado + dt*(3/40*k1 + 9/40*k2))
+    k4 = Funcion(t_ini + dt*0.8, Estado + dt*(44/45*k1 - 56/15*k2 + 32/9*k3))
+    k5 = Funcion(t_ini + dt*(8/9), Estado + dt*(19372/6561*k1 - 25360/2187*k2 + 64448/6561*k3 - 212/729*k4))
+    k6 = Funcion(t_ini + dt, Estado + dt*(9017/3168*k1 - 355/33*k2 + 46732/5247*k3 + 49/176*k4 - 5103/18656*k5))
+    k7 = Funcion(t_ini + dt, Estado + dt*(35/384*k1 + 500/1113*k3 + 125/192*k4 - 2187/6784*k5 + 11/84*k6))
+
+    Est_5 = Estado + dt*((35/384)*k1 + (500/1113)*k3 + (125/192)*k4 - (2187/6784)*k5 + (11/84)*k6)
+    return Est_5
+
+def Metodo_CashKarp(Estado, t_ini, t_fin, Funcion):
+    dt = t_fin - t_ini
+    k1 = Funcion(t_ini, Estado)
+    k2 = Funcion(t_ini + dt*0.2, Estado + dt*0.2*k1)
+    k3 = Funcion(t_ini + dt*0.3, Estado + dt*(3/40*k1 + 9/40*k2))
+    k4 = Funcion(t_ini + dt*0.6, Estado + dt*(0.3*k1 - 0.9*k2 + 1.2*k3))
+    k5 = Funcion(t_ini + dt, Estado + dt*(-11/54*k1 + 2.5*k2 - 70/27*k3 + 35/27*k4))
+    k6 = Funcion(t_ini + dt*0.875, Estado + dt*(1631/55296*k1 + 175/512*k2 + 575/13824*k3 + 44275/110592*k4 + 253/4096*k5))
+
+    Est_5 = Estado + dt*(37/378*k1 + 250/621*k3 + 125/594*k4 + 512/1771*k6)
+    return Est_5
+
+
+def Modelo_CR3BP(t, Vector_U, mu):
+    px = Vector_U[0]
+    py = Vector_U[1]
+    vx = Vector_U[2]
+    vy = Vector_U[3]
+
+    d1 = sqrt((px + mu)**2 + py**2)
+    d2 = sqrt((px - 1 + mu)**2 + py**2)
+
+    ax = px + 2*vy - (1 - mu)*(px + mu)/d1**3 - mu*(px - 1 + mu)/d2**3
+    ay = py - 2*vx - (1 - mu)*py/d1**3 - mu*py/d2**3
+
+    return array([vx, vy, ax, ay]) 
+
+def Integrador_Trayectoria(Estado_0, t_final, mu, nombre_metodo):
+    Pasos = 3000
+    vector_t = linspace(0, t_final, Pasos)
+    Matriz_U = zeros((Pasos, len(Estado_0)))     
+    Matriz_U[0] = Estado_0
+
+    def Sist_Ec(t_loc, u_loc):
+        return Modelo_CR3BP(t_loc, u_loc, mu)
+
+    for k in range(Pasos - 1):
+        t_actual = vector_t[k]
+        t_siguiente = vector_t[k + 1]
+
+        if nombre_metodo == "CASH_KARP":
+            Matriz_U[k+1] = Metodo_CashKarp(Matriz_U[k], t_actual, t_siguiente, Sist_Ec)
+
+        elif nombre_metodo == "FEHLBERG":
+            Matriz_U[k+1] = Metodo_Fehlberg(Matriz_U[k], t_actual, t_siguiente, Sist_Ec)
+
+        elif nombre_metodo == "DORMAND_PRINCE":
+            Matriz_U[k+1] = Metodo_DormandPrince(Matriz_U[k], t_actual, t_siguiente, Sist_Ec)
+
+    return Matriz_U
+
+
+def Ecuaciones_Lagrange(V, mu):
+    x = V[0]
+    y = V[1]
+    d1 = sqrt((x + mu)**2 + y**2)
+    d2 = sqrt((x - 1 + mu)**2 + y**2)
+
+    eq_x = x - (1 - mu)*(x + mu)/d1**3 - mu*(x - 1 + mu)/d2**3
+    eq_y = y - ((1 - mu)/d1**3 + mu/d2**3)*y
+    return array([eq_x, eq_y])
+
+def Calcular_Puntos_L(mu):
+    # Estimaciones iniciales
+    Lista_Guesses = [
+        (0.99, 0),             # L1
+        (1.01, 0),             # L2
+        (-1.00, 0),            # L3
+        (0.5 - mu, 0.866),     # L4
+        (0.5 - mu, -0.866)     # L5
+    ]
+    
+    Resultados = []
+    for guess in Lista_Guesses:
+        raiz = fsolve(Ecuaciones_Lagrange, guess, args=(mu,))
+        Resultados.append(raiz)
+    return Resultados
+
+
+
+param_mu = 0.0121506  # Tierra-Luna
+Condicion_Ini = [1.02, 0, 0, 0.01]
+
+# 1. Simular trayectoria con Cash-Karp
+Trayectoria_CK = Integrador_Trayectoria(Condicion_Ini, t_final=20, mu=param_mu, nombre_metodo="CASH_KARP")
+
+plt.figure()
+plt.plot(Trayectoria_CK[:,0], Trayectoria_CK[:,1], label="Trayectoria CK")
+Puntos_L = array(Calcular_Puntos_L(param_mu))
+plt.scatter(Puntos_L[:,0], Puntos_L[:,1], c="red", marker="x", label="Lagrange")
+plt.axis("equal"); plt.grid(True)
+plt.xlabel("X"); plt.ylabel("Y")
+plt.title("Método Cash-Karp")
+plt.legend(); plt.show()
+
+# 2. Simular trayectoria con Fehlberg
+Trayectoria_F = Integrador_Trayectoria(Condicion_Ini, t_final=20, mu=param_mu, nombre_metodo="FEHLBERG")
+
+plt.figure()
+plt.plot(Trayectoria_F[:,0], Trayectoria_F[:,1], label="Trayectoria Fehlberg")
+plt.scatter(Puntos_L[:,0], Puntos_L[:,1], c="red", marker="x", label="Lagrange")
+plt.axis("equal"); plt.grid(True)
+plt.xlabel("X"); plt.ylabel("Y")
+plt.title("Método Fehlberg")
+plt.legend(); plt.show()
+
+# 3. Simular trayectoria con Dormand-Prince
+Trayectoria_DP = Integrador_Trayectoria(Condicion_Ini, t_final=20, mu=param_mu, nombre_metodo="DORMAND_PRINCE")
+
+plt.figure()
+plt.plot(Trayectoria_DP[:,0], Trayectoria_DP[:,1], label="Trayectoria DP")
+plt.scatter(Puntos_L[:,0], Puntos_L[:,1], c="red", marker="x", label="Lagrange")
+plt.axis("equal"); plt.grid(True)
+plt.xlabel("X"); plt.ylabel("Y")
+plt.title("Método Dormand-Prince")
+plt.legend(); plt.show()
+
+
+
+Coords_L = array(Calcular_Puntos_L(param_mu))
+perturbacion = 0.001
+tiempo_sim = 40  
+
+# Iteramos sobre los 5 puntos para graficar
+nombres_puntos = ["L1", "L2", "L3", "L4", "L5"]
+ajustes_v = [0.02, 0.015, -0.02, 0.02, -0.02] # Ajustes de velocidad para probar estabilidad
+signo_pos = [1, -1, 1, 1, -1] # Signo para la perturbacion en posicion
+
+for i in range(5):
+    px, py = Coords_L[i]
+    
+    # Preparamos condiciones iniciales perturbadas
+    # Nota: uso logica similar a tu ejemplo original para L1-L5
+    if i == 1 or i == 4: # L2 y L5 tenian eps restando en tu codigo
+        U0_Lagrange = [px - perturbacion, py, 0, ajustes_v[i]]
+    else:
+        U0_Lagrange = [px + perturbacion, py, 0, ajustes_v[i]]
+
+    plt.figure()
+    plt.plot(px, py, marker="o", c="black", label=f"Punto {nombres_puntos[i]}")
+
+    # Probamos los 3 metodos
+    for met in ["CASH_KARP", "FEHLBERG", "DORMAND_PRINCE"]:
+        Ruta = Integrador_Trayectoria(U0_Lagrange, t_final=tiempo_sim, mu=param_mu, nombre_metodo=met)
+        plt.plot(Ruta[:,0], Ruta[:,1], label=met, linewidth=1)
+
+    plt.title(f"Estabilidad en {nombres_puntos[i]}")
+    plt.xlabel("x"); plt.ylabel("y")
+    plt.legend(); plt.axis("equal"); plt.grid(True)
+    plt.show()
